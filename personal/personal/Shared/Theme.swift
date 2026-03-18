@@ -82,33 +82,33 @@ extension AppTheme {
 // MARK: - Dark Theme (default — matches dashboard-designs CSS tokens)
 
 struct DarkTheme: AppTheme {
-    // Converted from CSS HSL tokens in dashboard-designs/frontend/src/index.css
-    let background = Color(hex: 0x101014)
-    let foreground = Color(white: 0.88)
-    let card = Color(hex: 0x17171C)
-    let cardForeground = Color(white: 0.88)
+    // Deeper dark palette inspired by Linear's design system
+    let background = Color(hex: 0x0C0C10)
+    let foreground = Color(hex: 0xF5F5F7)
+    let card = Color(hex: 0x141418)
+    let cardForeground = Color(hex: 0xF5F5F7)
 
-    let secondary = Color(hex: 0x232329)
-    let muted = Color(hex: 0x1F1F23)
-    let mutedForeground = Color(white: 0.48)
+    let secondary = Color(hex: 0x1E1E24)
+    let muted = Color(hex: 0x1A1A1F)
+    let mutedForeground = Color(hex: 0x6E6E7A)
 
-    let primary = Color(hex: 0x7B56D2)
+    let primary = Color(hex: 0x6E56CF)
     let primaryForeground = Color(white: 0.98)
-    let accent = Color(hex: 0x00CCB8)
+    let accent = Color(hex: 0x0ACDFF)
 
-    let success = Color(hex: 0x2BAB7C)
-    let warning = Color(hex: 0xF59F0A)
-    let destructive = Color(hex: 0xDC2828)
+    let success = Color(hex: 0x30D158)
+    let warning = Color(hex: 0xFF9F0A)
+    let destructive = Color(hex: 0xFF453A)
 
-    let border = Color(hex: 0x2B2B31)
+    let border = Color(white: 1.0, opacity: 0.08)
 
     let chartPurple = Color(hex: 0x7C5CFC)
     let chartPurpleLight = Color(hex: 0x9B85F5)
-    let chartCyan = Color(hex: 0x00CCBF)
-    let chartTeal = Color(hex: 0x35A882)
-    let chartPink = Color(hex: 0xD64D8A)
-    let chartAmber = Color(hex: 0xF5A623)
-    let chartBlue = Color(hex: 0x3B82F6)
+    let chartCyan = Color(hex: 0x0ACDFF)
+    let chartTeal = Color(hex: 0x30D158)
+    let chartPink = Color(hex: 0xFF6482)
+    let chartAmber = Color(hex: 0xFF9F0A)
+    let chartBlue = Color(hex: 0x4A9EFF)
     let chartGray = Color(hex: 0x3D4451)
     let chartGrayLight = Color(hex: 0x6B7280)
 }
@@ -132,9 +132,9 @@ enum AppMetrics {
     static let sidebarWidth: CGFloat = 52
     static let topHeaderHeight: CGFloat = 42
     static let bottomBarHeight: CGFloat = 50
-    static let cardCornerRadius: CGFloat = 8
-    static let contentPadding: CGFloat = 20
-    static let cardGap: CGFloat = 14
+    static let cardCornerRadius: CGFloat = 12
+    static let contentPadding: CGFloat = 24
+    static let cardGap: CGFloat = 16
 }
 
 // MARK: - Color hex extension

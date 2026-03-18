@@ -1,4 +1,5 @@
 #if os(macOS)
+import Charts
 import SwiftUI
 
 // MARK: - Dashboard Page
@@ -19,53 +20,25 @@ struct DashboardPage: View {
                     onToday: { viewModel.goToToday() }
                 )
 
-                // 2-column layout: main content left, right sidebar column
+                // Hero metrics row
+                HeroMetricsRow(
+                    workHours: viewModel.workHours,
+                    breakTimerText: viewModel.breakTimerText,
+                    breakToWorkRatio: viewModel.breakToWorkRatio,
+                    timeBreakdown: viewModel.timeBreakdown
+                )
+
+                // Timeline (full width)
+                TimelineCard(data: viewModel.timeline)
+
+                // Workblocks + Activity row
                 HStack(alignment: .top, spacing: AppMetrics.cardGap) {
-                    // ── Left main area ──
-                    VStack(spacing: AppMetrics.cardGap) {
-                        // Timeline (full width of main area)
-                        TimelineCard(data: viewModel.timeline)
-
-                        // Break Timer + Workblocks row
-                        if DashboardFeatures.showBreakTimer || DashboardFeatures.showWorkblocks {
-                            HStack(alignment: .top, spacing: AppMetrics.cardGap) {
-                                if DashboardFeatures.showBreakTimer {
-                                    BreakTimerCard(
-                                        timeSinceBreak: viewModel.breakTimerText,
-                                        breakToWorkRatio: viewModel.breakToWorkRatio
-                                    )
-                                    .frame(width: 260)
-                                }
-                                if DashboardFeatures.showWorkblocks {
-                                    WorkblocksCard(data: viewModel.workblocks)
-                                        .frame(maxWidth: .infinity)
-                                }
-                            }
-                        }
-
-                        // Activity + Projects row
-                        HStack(alignment: .top, spacing: AppMetrics.cardGap) {
-                            ActivityLogCard(data: viewModel.activityLog)
-                                .frame(maxWidth: .infinity)
-                            if DashboardFeatures.showProjects {
-                                ProjectsCard(data: MockData.projects)
-                                    .frame(maxWidth: .infinity)
-                            }
-                        }
+                    if DashboardFeatures.showWorkblocks {
+                        WorkblocksCard(data: viewModel.workblocks)
+                            .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
-
-                    // ── Right column (consistent width, spans all rows) ──
-                    VStack(spacing: AppMetrics.cardGap) {
-                        WorkHoursCard(data: viewModel.workHours)
-
-                        if DashboardFeatures.showScores {
-                            ScoresCard(data: MockData.scores)
-                        }
-
-                        TimeBreakdownCard(data: viewModel.timeBreakdown)
-                    }
-                    .frame(width: 320)
+                    ActivityLogCard(data: viewModel.activityLog)
+                        .frame(maxWidth: .infinity)
                 }
             }
             .padding(AppMetrics.contentPadding)
@@ -75,174 +48,215 @@ struct DashboardPage: View {
     }
 }
 
-// MARK: - Timeline Card
+// MARK: - Hero Metrics Row
+
+struct HeroMetricsRow: View {
+    let workHours: MockData.WorkHours
+    let breakTimerText: String
+    let breakToWorkRatio: String
+    let timeBreakdown: [MockData.TimeBreakdownEntry]
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(alignment: .top, spacing: AppMetrics.cardGap) {
+            // Big hours metric + activity ring
+            HStack(spacing: 24) {
+                // Activity ring
+                CircularProgress(
+                    value: workHours.percentOfDay,
+                    size: 72,
+                    strokeWidth: 6,
+                    color: theme.primary
+                )
+                .overlay {
+                    Text("\(Int(workHours.percentOfDay))%")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(theme.foreground)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(workHours.totalWorked)
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundStyle(theme.foreground)
+                    Text("of \(workHours.targetHours) target")
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.mutedForeground)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .dashboardCard()
+
+            // Break timer
+            if DashboardFeatures.showBreakTimer {
+                VStack(alignment: .leading, spacing: 4) {
+                    SectionTitle(text: "Since Last Break")
+                    Text(breakTimerText)
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .foregroundStyle(theme.foreground)
+                    HStack(spacing: 4) {
+                        Text("Ratio")
+                            .font(.system(size: 10))
+                            .foregroundStyle(theme.mutedForeground)
+                        Text(breakToWorkRatio)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(theme.accent)
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .dashboardCard()
+            }
+
+            // Category breakdown (compact bar chart)
+            CategoryBarCard(data: timeBreakdown)
+                .frame(width: 320)
+        }
+    }
+}
+
+// MARK: - Category Bar Card (Swift Charts)
+
+struct CategoryBarCard: View {
+    let data: [MockData.TimeBreakdownEntry]
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle(text: "Categories")
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 10)
+
+            if !data.isEmpty {
+                Chart(Array(data.enumerated()), id: \.offset) { _, item in
+                    BarMark(
+                        x: .value("Time", item.percent),
+                        y: .value("Category", item.category)
+                    )
+                    .foregroundStyle(Color(hex: item.colorHex))
+                    .cornerRadius(3)
+                    .annotation(position: .trailing, spacing: 6) {
+                        Text(item.time)
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(theme.mutedForeground)
+                    }
+                }
+                .chartXAxis(.hidden)
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisValueLabel {
+                            if let cat = value.as(String.self) {
+                                Text(cat)
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(theme.foreground)
+                            }
+                        }
+                    }
+                }
+                .chartPlotStyle { plot in
+                    plot.background(Color.clear)
+                }
+                .frame(height: max(CGFloat(data.count) * 28, 80))
+                .padding(.horizontal, 16)
+            }
+
+            Spacer(minLength: 16)
+        }
+        .dashboardCard()
+    }
+}
+
+// MARK: - Timeline Card (Swift Charts)
 
 struct TimelineCard: View {
     let data: [MockData.TimelineBlock]
     @Environment(\.theme) private var theme
 
-    private var startHour: Double {
-        guard !data.isEmpty else { return 6 }
-        let minStart = data.map(\.start).min() ?? 6
-        return max(0, floor(minStart) - 1)
-    }
-
-    private var endHour: Double {
-        guard !data.isEmpty else { return 20 }
-        let maxEnd = data.map(\.end).max() ?? 20
-        return min(24, ceil(maxEnd) + 1)
-    }
-
-    private var totalHours: Double {
-        endHour - startHour
-    }
-
-    private var hourLabels: [Int] {
-        let start = Int(startHour)
-        let end = Int(endHour)
-        // Choose a step that keeps labels readable (every 2 hours)
-        let step = 2
-        let alignedStart = start % step == 0 ? start : start + (step - start % step)
-        return stride(from: alignedStart, through: end, by: step).map { $0 }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(text: "Timeline")
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.top, 16)
                 .padding(.bottom, 10)
 
-            // Timeline bar
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(theme.secondary.opacity(0.6))
-                    .frame(height: 36)
-
-                GeometryReader { geo in
-                    ForEach(Array(data.enumerated()), id: \.offset) { _, block in
-                        let left = (block.start - startHour) / totalHours * geo.size.width
-                        let width = (block.end - block.start) / totalHours * geo.size.width
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(theme.activityColor(for: block.type).opacity(0.85))
-                            .frame(width: max(width, 2), height: 36)
-                            .offset(x: left)
-                            .help(block.label)
+            if data.isEmpty {
+                Text("No activity recorded")
+                    .font(.system(size: 12))
+                    .foregroundStyle(theme.mutedForeground)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+            } else {
+                Chart(Array(data.enumerated()), id: \.offset) { _, block in
+                    RectangleMark(
+                        xStart: .value("Start", block.start),
+                        xEnd: .value("End", block.end),
+                        y: .value("Activity", "Day")
+                    )
+                    .foregroundStyle(CategoryColors.color(for: block.type).opacity(0.85))
+                    .cornerRadius(3)
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: 2)) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(theme.border)
+                        AxisValueLabel {
+                            if let hour = value.as(Double.self) {
+                                Text(hourLabel(Int(hour)))
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundStyle(theme.mutedForeground)
+                            }
+                        }
                     }
                 }
-                .frame(height: 36)
-            }
-            .padding(.horizontal, 16)
-
-            // Hour labels
-            HStack {
-                ForEach(hourLabels, id: \.self) { hour in
-                    Text(hourLabelText(hour))
-                        .font(.system(size: 9).monospacedDigit())
-                        .foregroundStyle(theme.mutedForeground)
-                    if hour != hourLabels.last { Spacer() }
+                .chartYAxis(.hidden)
+                .chartPlotStyle { plot in
+                    plot.background(theme.secondary.opacity(0.3))
+                        .cornerRadius(4)
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 6)
-            .padding(.bottom, 14)
-        }
-        .dashboardCard()
-    }
-
-    private func hourLabelText(_ hour: Int) -> String {
-        if hour == 0 { return "12:00" }
-        if hour == 24 { return "12:00" }
-        return hour > 12 ? "\(hour - 12):00" : "\(hour):00"
-    }
-}
-
-// MARK: - Work Hours Card
-
-struct WorkHoursCard: View {
-    let data: MockData.WorkHours
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SectionTitle(text: "Work Hours")
+                .frame(height: 44)
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
+            }
 
-            // Metrics row
-            HStack(alignment: .firstTextBaseline, spacing: 24) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Total time worked")
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.mutedForeground)
-                    Text(data.totalWorked)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundStyle(theme.foreground)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Percent of work day")
-                        .font(.system(size: 10))
-                        .foregroundStyle(theme.mutedForeground)
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(String(format: "%.1f", data.percentOfDay))%")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundStyle(theme.foreground)
-                        Text("of \(data.targetHours)")
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.mutedForeground)
+            // Category legend
+            if !data.isEmpty {
+                HStack(spacing: 12) {
+                    let categories = uniqueCategories()
+                    ForEach(categories, id: \.self) { cat in
+                        HStack(spacing: 4) {
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(CategoryColors.color(for: cat))
+                                .frame(width: 8, height: 8)
+                            Text(cat)
+                                .font(.system(size: 9))
+                                .foregroundStyle(theme.mutedForeground)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
-            .padding(.horizontal, 16)
 
             Spacer(minLength: 14)
         }
         .dashboardCard()
     }
 
-}
-
-// MARK: - Break Timer Card
-
-struct BreakTimerCard: View {
-    let timeSinceBreak: String
-    let breakToWorkRatio: String
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SectionTitle(text: "Break Timer")
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-
-            HStack(alignment: .top, spacing: 20) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Time since last break")
-                        .font(.system(size: 9, weight: .medium))
-                        .tracking(0.5)
-                        .foregroundStyle(theme.mutedForeground)
-                    Text(timeSinceBreak)
-                        .font(.system(size: 28, weight: .bold).monospacedDigit())
-                        .foregroundStyle(theme.foreground)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Break to work ratio")
-                        .font(.system(size: 9, weight: .medium))
-                        .tracking(0.5)
-                        .foregroundStyle(theme.mutedForeground)
-                    Text(breakToWorkRatio)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(theme.foreground)
-                        .padding(.top, 4)
-                }
-            }
-            .padding(.horizontal, 16)
-
-            Spacer(minLength: 14)
+    private func uniqueCategories() -> [String] {
+        var seen = Set<String>()
+        return data.compactMap { block in
+            let cat = block.type
+            if seen.contains(cat) { return nil }
+            seen.insert(cat)
+            return cat
         }
-        .dashboardCard()
+    }
+
+    private func hourLabel(_ hour: Int) -> String {
+        if hour == 0 || hour == 24 { return "12a" }
+        if hour == 12 { return "12p" }
+        if hour < 12 { return "\(hour)a" }
+        return "\(hour - 12)p"
     }
 }
 
@@ -252,15 +266,11 @@ struct WorkblocksCard: View {
     let data: [MockData.Workblock]
     @Environment(\.theme) private var theme
 
-    private func borderColor(for task: String) -> Color {
-        CategoryColors.color(for: task)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(text: "Workblocks")
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.top, 16)
                 .padding(.bottom, 10)
 
             ScrollView {
@@ -268,7 +278,7 @@ struct WorkblocksCard: View {
                     ForEach(Array(data.enumerated()), id: \.offset) { _, block in
                         HStack {
                             Text(block.time)
-                                .font(.system(size: 11).monospacedDigit())
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(theme.mutedForeground)
                                 .frame(width: 44, alignment: .leading)
 
@@ -281,31 +291,19 @@ struct WorkblocksCard: View {
                                 .font(.system(size: 11))
                                 .foregroundStyle(theme.mutedForeground)
                                 .frame(width: 80, alignment: .trailing)
-
-                            if let score = block.score {
-                                Text(String(format: "%.1f", score))
-                                    .font(.system(size: 11, weight: .semibold).monospacedDigit())
-                                    .foregroundStyle(theme.foreground)
-                                    .frame(width: 40, alignment: .trailing)
-                            } else {
-                                Text("-")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(theme.mutedForeground.opacity(0.4))
-                                    .frame(width: 40, alignment: .trailing)
-                            }
                         }
                         .padding(.vertical, 8)
                         .padding(.leading, 12)
                         .padding(.trailing, 4)
                         .overlay(alignment: .leading) {
                             Rectangle()
-                                .fill(borderColor(for: block.task))
+                                .fill(CategoryColors.color(for: block.task))
                                 .frame(width: 3)
                         }
                     }
                 }
             }
-            .frame(height: 250)
+            .frame(height: 280)
             .padding(.horizontal, 16)
             .padding(.bottom, 14)
         }
@@ -322,23 +320,23 @@ struct ActivityLogCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(text: "Activity")
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 10)
 
             ScrollView {
                 VStack(spacing: 0) {
                     ForEach(Array(data.enumerated()), id: \.offset) { _, entry in
                         HStack(spacing: 0) {
                             Text(entry.time)
-                                .font(.system(size: 10, design: .monospaced).monospacedDigit())
+                                .font(.system(size: 10, design: .monospaced))
                                 .foregroundStyle(theme.mutedForeground)
-                                .frame(width: 60, alignment: .leading)
+                                .frame(width: 64, alignment: .leading)
 
                             Text(entry.app)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundStyle(theme.foreground)
-                                .frame(width: 84, alignment: .leading)
+                                .frame(width: 100, alignment: .leading)
 
                             Text(entry.detail)
                                 .font(.system(size: 11))
@@ -351,7 +349,7 @@ struct ActivityLogCard: View {
                     }
                 }
             }
-            .frame(height: 250)
+            .frame(height: 280)
             .padding(.horizontal, 16)
             .padding(.bottom, 14)
         }
@@ -359,7 +357,7 @@ struct ActivityLogCard: View {
     }
 }
 
-// MARK: - Projects Card
+// MARK: - Projects Card (hidden by feature flag, kept for future)
 
 struct ProjectsCard: View {
     let data: [MockData.Project]
@@ -378,14 +376,14 @@ struct ProjectsCard: View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(text: "Projects")
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.top, 16)
                 .padding(.bottom, 10)
 
             VStack(spacing: 12) {
                 ForEach(Array(data.enumerated()), id: \.offset) { _, project in
                     HStack(spacing: 12) {
                         Text("\(project.percent)%")
-                            .font(.system(size: 11).monospacedDigit())
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(theme.mutedForeground)
                             .frame(width: 32, alignment: .trailing)
 
@@ -394,7 +392,6 @@ struct ProjectsCard: View {
                             .foregroundStyle(theme.foreground)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
-                        // Progress bar
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(theme.secondary.opacity(0.8))
@@ -406,7 +403,7 @@ struct ProjectsCard: View {
                         .frame(width: 112)
 
                         Text(project.time)
-                            .font(.system(size: 11).monospacedDigit())
+                            .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(theme.mutedForeground)
                             .frame(width: 80, alignment: .trailing)
                     }
@@ -419,7 +416,7 @@ struct ProjectsCard: View {
     }
 }
 
-// MARK: - Scores Card
+// MARK: - Scores Card (hidden by feature flag, kept for future)
 
 struct ScoresCard: View {
     let data: MockData.ScoreSet
@@ -429,7 +426,7 @@ struct ScoresCard: View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(text: "Scores")
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.top, 16)
                 .padding(.bottom, 10)
 
             HStack {
@@ -454,7 +451,7 @@ struct ScoresCard: View {
             ZStack {
                 CircularProgress(value: Double(percent), size: 52, strokeWidth: 4, color: color)
                 Text("\(percent)%")
-                    .font(.system(size: 9, weight: .bold).monospacedDigit())
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(theme.foreground)
             }
             Text(label)
@@ -467,7 +464,7 @@ struct ScoresCard: View {
     }
 }
 
-// MARK: - Time Breakdown Card
+// MARK: - Time Breakdown Card (kept for backward compat, replaced by CategoryBarCard)
 
 struct TimeBreakdownCard: View {
     let data: [MockData.TimeBreakdownEntry]
@@ -477,7 +474,7 @@ struct TimeBreakdownCard: View {
         VStack(alignment: .leading, spacing: 0) {
             SectionTitle(text: "Time Breakdown")
                 .padding(.horizontal, 16)
-                .padding(.top, 14)
+                .padding(.top, 16)
                 .padding(.bottom, 10)
 
             ScrollView {
@@ -485,7 +482,7 @@ struct TimeBreakdownCard: View {
                     ForEach(Array(data.enumerated()), id: \.offset) { _, item in
                         HStack(spacing: 8) {
                             Text("\(item.percent)%")
-                                .font(.system(size: 11).monospacedDigit())
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(theme.mutedForeground)
                                 .frame(width: 28, alignment: .trailing)
 
@@ -495,7 +492,6 @@ struct TimeBreakdownCard: View {
                                 .frame(width: 112, alignment: .leading)
                                 .lineLimit(1)
 
-                            // Progress bar
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
                                     RoundedRectangle(cornerRadius: 2.5)
@@ -508,7 +504,7 @@ struct TimeBreakdownCard: View {
                             .frame(height: 5)
 
                             Text(item.time)
-                                .font(.system(size: 11).monospacedDigit())
+                                .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(theme.mutedForeground)
                                 .frame(width: 64, alignment: .trailing)
                         }
