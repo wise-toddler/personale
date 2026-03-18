@@ -155,26 +155,21 @@ struct TopHeader: View {
 
 struct DateNavigator: View {
     let dateText: String
-    let views: [String]
     var isToday: Bool
     var isLoading: Bool
     var onPrevious: (() -> Void)?
     var onNext: (() -> Void)?
     var onToday: (() -> Void)?
-    @State private var activeView: String
     @Environment(\.theme) private var theme
 
-    init(dateText: String, views: [String] = ["Day", "Week"], defaultView: String = "Day",
-         isToday: Bool = true, isLoading: Bool = false,
+    init(dateText: String, isToday: Bool = true, isLoading: Bool = false,
          onPrevious: (() -> Void)? = nil, onNext: (() -> Void)? = nil, onToday: (() -> Void)? = nil) {
         self.dateText = dateText
-        self.views = views
         self.isToday = isToday
         self.isLoading = isLoading
         self.onPrevious = onPrevious
         self.onNext = onNext
         self.onToday = onToday
-        self._activeView = State(initialValue: defaultView)
     }
 
     var body: some View {
@@ -194,34 +189,6 @@ struct DateNavigator: View {
             Spacer()
 
             HStack(spacing: 8) {
-                // View toggle
-                HStack(spacing: 0) {
-                    ForEach(views, id: \.self) { view in
-                        Button {
-                            activeView = view
-                        } label: {
-                            Text(view)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(activeView == view ? theme.foreground : theme.mutedForeground)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(
-                                    activeView == view
-                                        ? theme.card
-                                        : Color.clear
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 5))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(3)
-                .background(theme.secondary.opacity(0.8))
-                .clipShape(RoundedRectangle(cornerRadius: 7))
-
-                // Calendar icon (future: date picker)
-                headerIconButton(icon: "calendar", action: nil)
-
                 // Today button — only shown when viewing a past date
                 if !isToday {
                     Button { onToday?() } label: {
