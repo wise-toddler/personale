@@ -12,6 +12,7 @@ class ActivityViewModel: ObservableObject {
     @Published var showSessionDetail = false
     @Published var dayStats: DailyStatsResponse?
     @Published var categoryBreakdown: [CategoryBreakdownResponse] = []
+    @Published var rawTimeline: [TimelineEntryResponse] = []
 
     private let stats = StatsEngine.shared
     private var cache: [String: [FocusSessionResponse]] = [:]
@@ -97,6 +98,7 @@ class ActivityViewModel: ObservableObject {
 
         self.dayStats = stats.getTimePerApp(date: date)
         self.categoryBreakdown = stats.getCategoryBreakdown(date: date)
+        self.rawTimeline = stats.getRawTimeline(date: date)
     }
 
     // MARK: - Daily Summary computed data

@@ -23,16 +23,13 @@ struct ActivityDetailPage: View {
                     emptyState
                 } else {
                     HStack(alignment: .top, spacing: AppMetrics.cardGap) {
-                        // Left: Vertical timeline + Session list
+                        // Left: Vertical timeline (raw sessions) + Session list
                         VStack(spacing: AppMetrics.cardGap) {
-                            SessionTimelineCard(
-                                sessions: viewModel.sessions,
-                                selectedSession: nil,
+                            RawTimelineCard(
+                                entries: viewModel.rawTimeline,
                                 categoryColor: viewModel.categoryColor,
                                 parseTime: viewModel.parseTimeToHour
-                            ) { session in
-                                viewModel.selectSession(session)
-                            }
+                            )
 
                             SessionListCard(
                                 sessions: viewModel.sessions,
@@ -572,6 +569,114 @@ struct SessionDetailOverlay: View {
             onDismiss()
             return .handled
         }
+    }
+}
+
+// MARK: - Raw Timeline Card (shows every individual app session)
+
+struct RawTimelineCard: View {
+    let entries: [TimelineEntryResponse]
+    let categoryColor: (String) -> Color
+    let parseTime: (String) -> Double?
+
+    @Environment(\.theme) private var theme
+
+    private let hourHeight: CGFloat = 44
+
+    private var startHour: Int {
+        guard !entries.isEmpty else { return 0 }
+        let earliest = entries.compactMap { parseTime($0.startTime) }.min() ?? 0
+        return max(0, Int(floor(earliest)))
+    }
+
+    private var endHour: Int {
+        guard !entries.isEmpty else { return 24 }
+        let latest = entries.compactMap { parseTime($0.endTime) }.max() ?? 24
+        return min(24, Int(ceil(latest)) + 1)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionTitle(text: "Activity")
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+
+            ScrollView {
+                ZStack(alignment: .topLeading) {
+                    // Hour grid lines and labels
+                    VStack(spacing: 0) {
+                        ForEach(startHour..<endHour, id: \.self) { hour in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text(formatHourLabel(hour))
+                                    .font(.system(size: 9, design: .monospaced))
+                                    .foregroundStyle(theme.mutedForeground)
+                                    .frame(width: 52, alignment: .trailing)
+
+                                Rectangle()
+                                    .fill(theme.border.opacity(0.3))
+                                    .frame(height: 1)
+                            }
+                            .frame(height: hourHeight)
+                        }
+                    }
+
+                    // Session blocks — individual app sessions with category colors
+                    ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+                        if let start = parseTime(entry.startTime),
+                           let end = parseTime(entry.endTime),
+                           end > start
+                        {
+                            let topOffset = CGFloat(start - Double(startHour)) * hourHeight
+                            let blockHeight = CGFloat(end - start) * hourHeight
+
+                            sessionBlock(entry: entry, height: max(blockHeight, 3))
+                                .offset(x: 68, y: topOffset)
+                        }
+                    }
+                }
+                .frame(height: CGFloat(endHour - startHour) * hourHeight)
+            }
+            .frame(height: min(CGFloat(endHour - startHour) * hourHeight, 520))
+            .padding(.horizontal, 8)
+            .padding(.bottom, 14)
+        }
+        .dashboardCard()
+    }
+
+    private func sessionBlock(entry: TimelineEntryResponse, height: CGFloat) -> some View {
+        let color = categoryColor(entry.category)
+
+        return ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: height > 6 ? 6 : 2)
+                .fill(color.opacity(0.6))
+
+            if height >= 28 {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.appName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                    if height >= 40 {
+                        Text("\(entry.startTime) - \(entry.endTime)")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: height > 6 ? 6 : 2))
+        .help("\(entry.appName) (\(entry.category)) \(entry.startTime)-\(entry.endTime)")
+    }
+
+    private func formatHourLabel(_ hour: Int) -> String {
+        if hour == 0 { return "12:00 AM" }
+        if hour < 12 { return "\(hour):00 AM" }
+        if hour == 12 { return "12:00 PM" }
+        return "\(hour - 12):00 PM"
     }
 }
 #endif

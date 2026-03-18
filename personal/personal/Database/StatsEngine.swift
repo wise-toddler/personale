@@ -303,6 +303,30 @@ final class StatsEngine {
         }
     }
 
+    /// Raw timeline without merging — shows every individual app session.
+    func getRawTimeline(date: String) -> [TimelineEntryResponse] {
+        let ctx = dayContext(date: date)
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm"
+        fmt.timeZone = TimeZone.current
+
+        return ctx.sessions.compactMap { session in
+            let effStart = effectiveStart(session, startOfDay: ctx.startOfDay)
+            let effEnd = effectiveEnd(session, endOfDay: ctx.endOfDay)
+            let secs = max(0, Int(effEnd.timeIntervalSince(effStart)))
+            guard secs > 0 else { return nil }
+
+            let cat = resolveCategory(session.bundleId)
+            return TimelineEntryResponse(
+                startTime: fmt.string(from: effStart),
+                endTime: fmt.string(from: effEnd),
+                appName: session.appName,
+                bundleId: session.bundleId,
+                category: cat
+            )
+        }
+    }
+
     // MARK: - Activity Log
 
     func getActivityLog(date: String) -> [ActivityLogEntryResponse] {

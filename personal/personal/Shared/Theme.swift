@@ -82,15 +82,15 @@ extension AppTheme {
 // MARK: - Dark Theme (default — matches dashboard-designs CSS tokens)
 
 struct DarkTheme: AppTheme {
-    // Deeper dark palette inspired by Linear's design system
-    let background = Color(hex: 0x0C0C10)
-    let foreground = Color(hex: 0xF5F5F7)
-    let card = Color(hex: 0x141418)
-    let cardForeground = Color(hex: 0xF5F5F7)
+    // Balanced dark palette — not too dark, not washed out
+    let background = Color(hex: 0x1C1C22)
+    let foreground = Color(hex: 0xF0F0F4)
+    let card = Color(hex: 0x252530)
+    let cardForeground = Color(hex: 0xF0F0F4)
 
-    let secondary = Color(hex: 0x1E1E24)
-    let muted = Color(hex: 0x1A1A1F)
-    let mutedForeground = Color(hex: 0x6E6E7A)
+    let secondary = Color(hex: 0x2E2E3A)
+    let muted = Color(hex: 0x28282F)
+    let mutedForeground = Color(hex: 0x8E8E9A)
 
     let primary = Color(hex: 0x6E56CF)
     let primaryForeground = Color(white: 0.98)
