@@ -43,7 +43,13 @@ final class StatsEngine {
         return categoryCache
     }
 
-    private func resolveCategory(_ bundleId: String?) -> String {
+    /// Invalidates the category cache (called after settings change).
+    func invalidateCategoryCache() {
+        categoryCache = [:]
+        lastCacheLoad = nil
+    }
+
+    func resolveCategory(_ bundleId: String?) -> String {
         guard let bid = bundleId else { return "Other" }
         return getCategoryCache()[bid] ?? "Other"
     }

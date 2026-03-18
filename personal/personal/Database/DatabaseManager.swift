@@ -208,6 +208,10 @@ final class DatabaseManager {
         return rows
     }
 
+    func lastInsertRowId() -> Int {
+        Int(sqlite3_last_insert_rowid(db))
+    }
+
     private func bindParams(stmt: OpaquePointer?, params: [Any?]) {
         for (index, param) in params.enumerated() {
             let i = Int32(index + 1)
