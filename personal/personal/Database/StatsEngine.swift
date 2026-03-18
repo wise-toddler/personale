@@ -533,7 +533,7 @@ final class StatsEngine {
     /// Returns 0-100 focus score for a given day.
     func getFocusScore(date: String) -> Int {
         let ctx = dayContext(date: date)
-        let productiveCategories: Set<String> = ["Code", "Design", "Writing"]
+        let productiveCategories: Set<String> = ["Code", "Design", "Writing", "Work"]
 
         var totalSeconds = 0
         var productiveSeconds = 0

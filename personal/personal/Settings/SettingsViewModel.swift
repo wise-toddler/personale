@@ -22,7 +22,7 @@ class SettingsViewModel: ObservableObject {
 
     let allCategories = [
         "Code", "Browsing", "Communication", "Design",
-        "Writing", "Media", "Utilities", "Reading", "Other"
+        "Writing", "Media", "Utilities", "Reading", "Work", "Other"
     ]
 
     func load() {

@@ -52,6 +52,7 @@ enum CategoryColors {
         "Media": 0x9B85F5,
         "Utilities": 0x6B7280,
         "Reading": 0x3B82F6,
+        "Work": 0x4A9EFF,
         "Other": 0x3D4451,
     ]
 
