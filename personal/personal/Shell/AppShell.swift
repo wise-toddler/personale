@@ -17,6 +17,8 @@ struct AppShell: View {
                     switch activePage {
                     case "activity":
                         ActivityDetailPage()
+                    case "reports":
+                        ReportsPage()
                     case "settings":
                         SettingsPage()
                     default:
@@ -27,6 +29,21 @@ struct AppShell: View {
         }
         .background(theme.background)
         .frame(minWidth: 1100, minHeight: 700)
+        .background {
+            // Hidden buttons for Cmd+1/2/3/4 keyboard navigation
+            HStack(spacing: 0) {
+                Button("") { activePage = "dashboard" }
+                    .keyboardShortcut("1", modifiers: .command)
+                Button("") { activePage = "activity" }
+                    .keyboardShortcut("2", modifiers: .command)
+                Button("") { activePage = "reports" }
+                    .keyboardShortcut("3", modifiers: .command)
+                Button("") { activePage = "settings" }
+                    .keyboardShortcut("4", modifiers: .command)
+            }
+            .opacity(0)
+            .frame(width: 0, height: 0)
+        }
     }
 }
 
@@ -42,6 +59,9 @@ struct Sidebar: View {
         ]
         if SidebarFeatures.showActivity {
             items.append(("activity", "timer", "Activity"))
+        }
+        if SidebarFeatures.showReports {
+            items.append(("reports", "chart.bar", "Reports"))
         }
         if SidebarFeatures.showFocus {
             items.append(("focus", "waveform.path.ecg", "Focus"))

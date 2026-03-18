@@ -15,6 +15,10 @@ class DashboardViewModel: ObservableObject {
     @Published var categoryBreakdown: [CategoryBreakdownResponse]?
     @Published var workblockEntries: [WorkblockEntryResponse]?
 
+    // Focus score + streak
+    @Published var focusScore: Int = 0
+    @Published var streak: Int = 0
+
     // Break timer — ticks every second, computed client-side from existing data
     @Published var secondsSinceLastBreak: Int = 0
 
@@ -325,6 +329,9 @@ class DashboardViewModel: ObservableObject {
             dayStats: s, timelineEntries: t, activityEntries: a,
             categoryBreakdown: c, workblockEntries: w
         )
+        self.focusScore = stats.getFocusScore(date: date)
+        self.streak = stats.getStreak()
+
         self.isLoading = false
         self.computeLastBreakEnd()
     }

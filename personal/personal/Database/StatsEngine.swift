@@ -455,6 +455,151 @@ final class StatsEngine {
             }
     }
 
+    // MARK: - Weekly Stats
+
+    /// Returns 7 days of stats ending at endDate.
+    func getWeeklyStats(endDate: String) -> [(date: String, dayLabel: String, totalSeconds: Int, categories: [(category: String, seconds: Int)])] {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone.current
+        let dayFmt = DateFormatter()
+        dayFmt.dateFormat = "EEE"
+        dayFmt.timeZone = TimeZone.current
+
+        guard let end = fmt.date(from: endDate) else { return [] }
+        let cal = Calendar.current
+
+        var results: [(date: String, dayLabel: String, totalSeconds: Int, categories: [(category: String, seconds: Int)])] = []
+
+        for offset in (0..<7).reversed() {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: end) else { continue }
+            let dateStr = fmt.string(from: day)
+            let dayLabel = dayFmt.string(from: day)
+
+            let ctx = dayContext(date: dateStr)
+            var timeByCategory: [String: Int] = [:]
+
+            for session in ctx.sessions {
+                let effStart = effectiveStart(session, startOfDay: ctx.startOfDay)
+                let effEnd = effectiveEnd(session, endOfDay: ctx.endOfDay)
+                let seconds = max(0, Int(effEnd.timeIntervalSince(effStart)))
+                guard seconds > 0 else { continue }
+                let category = resolveCategory(session.bundleId)
+                timeByCategory[category, default: 0] += seconds
+            }
+
+            let total = timeByCategory.values.reduce(0, +)
+            let cats = timeByCategory.sorted { $0.value > $1.value }.map { ($0.key, $0.value) }
+            results.append((date: dateStr, dayLabel: dayLabel, totalSeconds: total, categories: cats))
+        }
+
+        return results
+    }
+
+    // MARK: - Heatmap Data
+
+    /// Returns daily total tracked seconds for the last N weeks.
+    func getHeatmapData(weeks: Int) -> [(date: Date, totalSeconds: Int)] {
+        let cal = Calendar.current
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone.current
+
+        let today = cal.startOfDay(for: Date())
+        let totalDays = weeks * 7
+
+        var results: [(date: Date, totalSeconds: Int)] = []
+
+        for offset in (0..<totalDays).reversed() {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let dateStr = fmt.string(from: day)
+            let ctx = dayContext(date: dateStr)
+
+            var total = 0
+            for session in ctx.sessions {
+                let effStart = effectiveStart(session, startOfDay: ctx.startOfDay)
+                let effEnd = effectiveEnd(session, endOfDay: ctx.endOfDay)
+                total += max(0, Int(effEnd.timeIntervalSince(effStart)))
+            }
+
+            results.append((date: day, totalSeconds: total))
+        }
+
+        return results
+    }
+
+    // MARK: - Focus Score
+
+    /// Returns 0-100 focus score for a given day.
+    func getFocusScore(date: String) -> Int {
+        let ctx = dayContext(date: date)
+        let productiveCategories: Set<String> = ["Code", "Design", "Writing"]
+
+        var totalSeconds = 0
+        var productiveSeconds = 0
+        var sessionDurations: [Int] = []
+
+        let merged = buildMergedSessions(ctx)
+        for block in merged {
+            totalSeconds += block.seconds
+            if productiveCategories.contains(block.category) {
+                productiveSeconds += block.seconds
+            }
+            sessionDurations.append(block.seconds)
+        }
+
+        guard totalSeconds > 0 else { return 0 }
+
+        // productive_ratio (40 pts)
+        let productiveRatio = Double(productiveSeconds) / Double(totalSeconds)
+        let productivePts = productiveRatio * 40.0
+
+        // session_focus (30 pts): avg session duration / 20 min, capped at 1.0
+        let avgSession = sessionDurations.isEmpty ? 0.0 : Double(sessionDurations.reduce(0, +)) / Double(sessionDurations.count)
+        let sessionFocus = min(avgSession / (20.0 * 60.0), 1.0)
+        let sessionPts = sessionFocus * 30.0
+
+        // target_ratio (30 pts): total tracked / 8h, capped at 1.0
+        let targetRatio = min(Double(totalSeconds) / (8.0 * 3600.0), 1.0)
+        let targetPts = targetRatio * 30.0
+
+        return min(100, Int(round(productivePts + sessionPts + targetPts)))
+    }
+
+    // MARK: - Streak
+
+    /// Count consecutive days going backwards from yesterday where total tracked > 1 hour.
+    func getStreak() -> Int {
+        let cal = Calendar.current
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.timeZone = TimeZone.current
+
+        var streak = 0
+        var checkDate = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: Date()))!
+
+        while true {
+            let dateStr = fmt.string(from: checkDate)
+            let ctx = dayContext(date: dateStr)
+
+            var total = 0
+            for session in ctx.sessions {
+                let effStart = effectiveStart(session, startOfDay: ctx.startOfDay)
+                let effEnd = effectiveEnd(session, endOfDay: ctx.endOfDay)
+                total += max(0, Int(effEnd.timeIntervalSince(effStart)))
+            }
+
+            if total > 3600 {
+                streak += 1
+                checkDate = cal.date(byAdding: .day, value: -1, to: checkDate)!
+            } else {
+                break
+            }
+        }
+
+        return streak
+    }
+
     // MARK: - Helpers
 
     private func formatDuration(_ totalSeconds: Int) -> String {

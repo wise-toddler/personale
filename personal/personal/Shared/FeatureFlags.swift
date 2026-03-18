@@ -4,6 +4,7 @@
 
 enum SidebarFeatures {
     static let showActivity = true        // M3
+    static let showReports = true         // M4
     static let showFocus = false          // M4
     static let showGoals = false          // deferred
     static let showCalendar = false       // deferred

@@ -25,7 +25,9 @@ struct DashboardPage: View {
                     workHours: viewModel.workHours,
                     breakTimerText: viewModel.breakTimerText,
                     breakToWorkRatio: viewModel.breakToWorkRatio,
-                    timeBreakdown: viewModel.timeBreakdown
+                    timeBreakdown: viewModel.timeBreakdown,
+                    focusScore: viewModel.focusScore,
+                    streak: viewModel.streak
                 )
 
                 // Timeline (full width)
@@ -55,6 +57,8 @@ struct HeroMetricsRow: View {
     let breakTimerText: String
     let breakToWorkRatio: String
     let timeBreakdown: [MockData.TimeBreakdownEntry]
+    let focusScore: Int
+    let streak: Int
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -81,6 +85,41 @@ struct HeroMetricsRow: View {
                     Text("of \(workHours.targetHours) target")
                         .font(.system(size: 12))
                         .foregroundStyle(theme.mutedForeground)
+                }
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .dashboardCard()
+
+            // Focus score + Streak
+            HStack(spacing: 20) {
+                // Focus score ring
+                CircularProgress(
+                    value: Double(focusScore),
+                    size: 56,
+                    strokeWidth: 5,
+                    color: theme.accent
+                )
+                .overlay {
+                    Text("\(focusScore)")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(theme.foreground)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        SectionTitle(text: "Focus Score")
+                        Text("\(focusScore)/100")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(theme.foreground)
+                    }
+                    HStack(spacing: 4) {
+                        Text("\u{1F525}")
+                            .font(.system(size: 12))
+                        Text("\(streak) day streak")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(theme.warning)
+                    }
                 }
             }
             .padding(20)
